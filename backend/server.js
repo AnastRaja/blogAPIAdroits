@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 import Image from "./models/Image.js";
 import Blog from "./models/Blog.js";
 import Category from "./models/Category.js";
+import Contact from "./models/Contact.js";
 import path from "path";
 import {fileURLToPath} from "url";
 import {PassThrough} from "stream";
@@ -368,6 +369,65 @@ app.get("/api/blogs/:slug", async (req, res) => {
   }
 });
 
+// API Route for Contact Form
+app.post("/api/contact", async (req, res) => {
+  try {
+    console.log("Request body:", req.body); // Debug: Log incoming data
+    const {name, email, phone, country, contactMethod, requirement} = req.body;
+
+    // Manual validation for missing fields
+    if (
+      !name ||
+      !email ||
+      !phone ||
+      !country ||
+      !contactMethod ||
+      !requirement
+    ) {
+      return res.status(400).json({error: "All fields are required"});
+    }
+
+    const contact = new Contact({
+      name,
+      email,
+      phone,
+      country,
+      contactMethod,
+      requirement,
+    });
+
+    await contact.save();
+    res
+      .status(201)
+      .json({message: "Contact form submitted successfully", contact});
+  } catch (error) {
+    console.error("Error saving contact:", error); // Detailed error log
+    if (error.name === "ValidationError") {
+      const errors = Object.values(error.errors).map((err) => err.message);
+      return res
+        .status(400)
+        .json({error: "Validation failed", details: errors});
+    }
+    res
+      .status(500)
+      .json({error: "Failed to submit contact form", details: error.message});
+  }
+});
+// GET /api/contact endpoint
+app.get("/api/contact", async (req, res) => {
+  try {
+    console.log("GET /api/contact - Fetching all contacts");
+    const contacts = await Contact.find().sort({createdAt: -1}); // Sort by newest first
+    res
+      .status(200)
+      .json({message: "Contacts retrieved successfully", contacts});
+  } catch (error) {
+    console.error("Error fetching contacts:", error);
+    res
+      .status(500)
+      .json({error: "Failed to fetch contacts", details: error.message});
+  }
+});
 // Server host setup
 app.listen(5000, () => {
   console.log("App started in local host 5000 hello");
