@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 import Image from "./models/Image.js";
 import Blog from "./models/Blog.js";
 import Category from "./models/Category.js";
+import Contact from "./models/Contact.js";
 import path from "path";
 import {fileURLToPath} from "url";
 import {PassThrough} from "stream";
@@ -170,6 +171,18 @@ app.post("/api/categories", async (req, res) => {
   }
 });
 
+// Fetch all categories
+app.get("/api/categories", async (req, res) => {
+  try {
+    const categories = await Category.find(); // Fetch all categories from the database
+    res.status(200).json(categories);
+  } catch (error) {
+    res
+      .status(500)
+      .json({message: "Failed to fetch categories", error: error.message});
+  }
+});
+
 // Get all categories
 app.get("/api/categories", async (req, res) => {
   try {
@@ -179,6 +192,58 @@ app.get("/api/categories", async (req, res) => {
     res
       .status(500)
       .json({message: "Internal server error", error: error.message});
+  }
+});
+
+// Delete a category by ID
+app.delete("/api/categories/:id", async (req, res) => {
+  try {
+    const {id} = req.params;
+
+    const category = await Category.findById(id);
+    if (!category) {
+      return res.status(404).json({message: "Category not found"});
+    }
+
+    await Category.findByIdAndDelete(id);
+    res.status(200).json({message: "Category deleted successfully"});
+  } catch (error) {
+    res
+      .status(500)
+      .json({message: "Failed to delete category", error: error.message});
+  }
+});
+
+// Update a category by ID
+app.put("/api/categories/:id", async (req, res) => {
+  try {
+    const {id} = req.params;
+    const {name, description} = req.body;
+
+    if (!name) {
+      return res.status(400).json({message: "Category name is required"});
+    }
+
+    const existingCategory = await Category.findOne({name, _id: {$ne: id}});
+    if (existingCategory) {
+      return res.status(400).json({message: "Category name already exists"});
+    }
+
+    const updatedCategory = await Category.findByIdAndUpdate(
+      id,
+      {name, description},
+      {new: true, runValidators: true}
+    );
+
+    if (!updatedCategory) {
+      return res.status(404).json({message: "Category not found"});
+    }
+
+    res.status(200).json(updatedCategory);
+  } catch (error) {
+    res
+      .status(500)
+      .json({message: "Failed to update category", error: error.message});
   }
 });
 
@@ -304,15 +369,63 @@ app.get("/api/blogs/:slug", async (req, res) => {
   }
 });
 
-app.get("/api/blogurls", async (req, res) => {
+// API Route for Contact Form
+app.post("/api/contact", async (req, res) => {
   try {
-    const slugs = await Blog.find({}, "slug -_id");
-    res.status(200).json(slugs);
+    console.log("Request body:", req.body); // Debug: Log incoming data
+    const {name, email, phone, country, contactMethod, requirement} = req.body;
+
+    // Manual validation for missing fields
+    if (
+      !name ||
+      !email ||
+      !phone ||
+      !country ||
+      !contactMethod ||
+      !requirement
+    ) {
+      return res.status(400).json({error: "All fields are required"});
+    }
+
+    const contact = new Contact({
+      name,
+      email,
+      phone,
+      country,
+      contactMethod,
+      requirement,
+    });
+
+    await contact.save();
+    res
+      .status(201)
+      .json({message: "Contact form submitted successfully", contact});
   } catch (error) {
-    console.error("Error in GET /api/blogs/slugs:", error);
+    console.error("Error saving contact:", error); // Detailed error log
+    if (error.name === "ValidationError") {
+      const errors = Object.values(error.errors).map((err) => err.message);
+      return res
+        .status(400)
+        .json({error: "Validation failed", details: errors});
+    }
     res
       .status(500)
-      .json({message: "Internal server error", error: error.message});
+      .json({error: "Failed to submit contact form", details: error.message});
+  }
+});
+// GET /api/contact endpoint
+app.get("/api/contact", async (req, res) => {
+  try {
+    console.log("GET /api/contact - Fetching all contacts");
+    const contacts = await Contact.find().sort({createdAt: -1}); // Sort by newest first
+    res
+      .status(200)
+      .json({message: "Contacts retrieved successfully", contacts});
+  } catch (error) {
+    console.error("Error fetching contacts:", error);
+    res
+      .status(500)
+      .json({error: "Failed to fetch contacts", details: error.message});
   }
 });
 // Server host setup
