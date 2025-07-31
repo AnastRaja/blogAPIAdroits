@@ -10,7 +10,7 @@ import Category from "./models/Category.js";
 import path from "path";
 import {fileURLToPath} from "url";
 import {PassThrough} from "stream";
-
+import Contact from "./models/Contact.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -303,7 +303,50 @@ app.get("/api/blogs/:slug", async (req, res) => {
       .json({message: "Internal server error", error: error.message});
   }
 });
+// API Route for Contact Form
+app.post("/api/contact", async (req, res) => {
+  try {
+    console.log("Request body:", req.body); // Debug: Log incoming data
+    const {name, email, phone, country, contactMethod, requirement} = req.body;
 
+    // Manual validation for missing fields
+    if (
+      !name ||
+      !email ||
+      !phone ||
+      !country ||
+      !contactMethod ||
+      !requirement
+    ) {
+      return res.status(400).json({error: "All fields are required"});
+    }
+
+    const contact = new Contact({
+      name,
+      email,
+      phone,
+      country,
+      contactMethod,
+      requirement,
+    });
+
+    await contact.save();
+    res
+      .status(201)
+      .json({message: "Contact form submitted successfully", contact});
+  } catch (error) {
+    console.error("Error saving contact:", error); // Detailed error log
+    if (error.name === "ValidationError") {
+      const errors = Object.values(error.errors).map((err) => err.message);
+      return res
+        .status(400)
+        .json({error: "Validation failed", details: errors});
+    }
+    res
+      .status(500)
+      .json({error: "Failed to submit contact form", details: error.message});
+  }
+});
 app.get("/api/blogurls", async (req, res) => {
   try {
     const slugs = await Blog.find({}, "slug -_id");
