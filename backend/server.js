@@ -347,6 +347,17 @@ app.post("/api/contact", async (req, res) => {
       .json({error: "Failed to submit contact form", details: error.message});
   }
 });
+app.get("/api/contact", async (req, res) => {
+  try {
+    const contacts = await Contact.find().sort({createdAt: -1});
+    res.status(200).json(contacts);
+  } catch (error) {
+    console.error("Error fetching contacts:", error);
+    res
+      .status(500)
+      .json({error: "Failed to fetch contact details", details: error.message});
+  }
+});
 app.get("/api/blogurls", async (req, res) => {
   try {
     const slugs = await Blog.find({}, "slug -_id");
